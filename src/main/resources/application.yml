@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: rate-limiter
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+rate-limit:
+  limit: 100
+  window-minutes: 1
+
+jwt:
+  secret: ${JWT_SECRET:c3VwZXJmYW5zLXJhdGUtbGltaXRlci1zZWNyZXQta2V5LXZlcnktbG9uZy1mb3Itc2VjdXJpdHk=}
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.superfans.ratelimiter: DEBUG
+    org.springframework.security: INFO
