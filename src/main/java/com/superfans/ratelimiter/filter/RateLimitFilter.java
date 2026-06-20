@@ -78,8 +78,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         response.setHeader(HEADER_RESET, String.valueOf(resetEpoch));
 
         if (result.isAllowed()) {
-            log.debug("Request allowed — userId={}, count={}/{}", userId,
-                    result.getCurrentCount(), result.getLimit());
             filterChain.doFilter(request, response);
         } else {
             log.warn("Rate limit exceeded — userId={}, count={}/{}", userId,

@@ -63,7 +63,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith(BEARER_PREFIX)) {
-            log.debug("Missing or malformed Authorization header for {}", request.getRequestURI());
+            log.error("Missing or malformed Authorization header for {}", request.getRequestURI());
             sendUnauthorized(response, "Missing or malformed Authorization header");
             return;
         }
@@ -72,7 +72,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Claims claims = jwtUtil.validateAndExtractClaims(token);
 
         if (claims == null) {
-            log.debug("Invalid JWT for request {}", request.getRequestURI());
+            log.error("Invalid JWT for request {}", request.getRequestURI());
             sendUnauthorized(response, "Invalid or expired JWT token");
             return;
         }
@@ -93,8 +93,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-
-            log.debug("JWT authentication successful — userId={}", userId);
         }
 
 

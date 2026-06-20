@@ -72,7 +72,7 @@ public class JwtUtil {
                     .parseSignedClaims(token)
                     .getPayload();
         } catch (JwtException | IllegalArgumentException ex) {
-            log.debug("JWT validation failed: {}", ex.getMessage());
+            log.error("JWT validation failed: {}", ex.getMessage());
             return null;
         }
     }
