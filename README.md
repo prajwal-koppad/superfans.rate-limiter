@@ -36,23 +36,48 @@ The implementation is designed to be:
 
 ## Architecture
 
+### Diagram 1: High-Level Architecture
+
 ```text
-Client
-   |
-   v
-JwtAuthenticationFilter
-   |
-   v
-RateLimitFilter
-   |
-   v
-RedisRateLimitService
-   |
-   v
-Redis
-   |
-   v
-Controller
++---------+
+| Client  |
++---------+
+     |
+     | HTTP Request + JWT
+     v
++-------------------------+
+| JwtAuthenticationFilter |
++-------------------------+
+     |
+     | Authenticated User
+     v
++------------------+
+| RateLimitFilter  |
++------------------+
+     |
+     | check(userId)
+     v
++------------------------+
+| RedisRateLimitService  |
++------------------------+
+     |
+     | Lua Script
+     v
++---------+
+| Redis   |
++---------+
+     |
+     | Allowed?
+     |
++----+----+
+|         |
+YES       NO
+|         |
+v         v
++------+  +------------------+
+| API  |  | HTTP 429         |
+| Ctrl |  | Too Many Requests|
++------+  +------------------+
 ```
 
 ### Request Flow
@@ -70,6 +95,34 @@ Controller
     * The request proceeds to the controller.
 
 ---
+
+### Diagram 2: Horizontal Scalability
+
+```text
+                +---------------+
+                | Load Balancer |
+                +---------------+
+                        |
+      ---------------------------------------
+      |                 |                   |
+      v                 v                   v
+
+ +------------+   +------------+   +------------+
+ | Spring App |   | Spring App |   | Spring App |
+ | Instance A |   | Instance B |   | Instance C |
+ +------------+   +------------+   +------------+
+       \                 |                /
+        \                |               /
+         \               |              /
+          \              |             /
+           v             v            v
+   all instances share Redis as a centralized store
+                  +-------------+
+                  |    Redis    |
+                  +-------------+
+               shared Rate Limit State
+
+```
 
 ## Technology Stack
 
