@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 
@@ -17,15 +18,14 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link RedisRateLimitService}.
  *
  * <p>Redis is mocked — no real Redis instance is required.
  * Focuses on verifying business logic: allowed/denied decisions,
- * header values, and failure-open behaviour.
+ * header values, and failure-open behavior.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RedisRateLimitService")
@@ -119,16 +119,22 @@ class RedisRateLimitServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("Redis returns null — fail-open: request is allowed")
-    void redisReturnsNull_shouldFailOpen() {
-        when(redisTemplate.execute(eq(rateLimitScript), anyList(), anyString()))
-                .thenReturn(null);
-        when(redisTemplate.getExpire(anyString(), eq(TimeUnit.SECONDS))).thenReturn(60L);
+    @DisplayName("Redis unavailable — fail-open allows request")
+    void redisUnavailable_shouldFailOpen() {
+
+        when(redisTemplate.execute(
+                eq(rateLimitScript),
+                anyList(),
+                anyString()))
+                .thenThrow(new RedisConnectionFailureException("Redis down"));
 
         RateLimitResult result = service.check(USER_ID);
 
-        // Fail-open policy: prefer availability to correctness under outage
         assertThat(result.isAllowed()).isTrue();
+        assertThat(result.getLimit()).isEqualTo(LIMIT);
+        assertThat(result.getRemaining()).isEqualTo(LIMIT);
+        assertThat(result.getCurrentCount()).isZero();
+        assertThat(result.getRetryAfterSeconds()).isZero();
     }
 
     @Test
@@ -140,10 +146,10 @@ class RedisRateLimitServiceTest {
 
         service.check(USER_ID);
 
-        verify(redisTemplate).execute(
+        verify(redisTemplate, times(1)).execute(
                 eq(rateLimitScript),
                 eq(List.of("rate_limit:" + USER_ID)),
-                eq("60")   // 1 minute × 60 seconds
+                eq("60")
         );
     }
 
@@ -172,5 +178,20 @@ class RedisRateLimitServiceTest {
 
         // Should fall back to window duration (60s)
         assertThat(result.getRetryAfterSeconds()).isEqualTo(60L);
+    }
+
+    @Test
+    @DisplayName("Redis TTL lookup failure — fail-open allows request")
+    void redisTtlLookupFailure_shouldFailOpen() {
+
+        when(redisTemplate.execute(eq(rateLimitScript), anyList(), anyString()))
+                .thenReturn(50L);
+
+        when(redisTemplate.getExpire(anyString(), eq(TimeUnit.SECONDS)))
+                .thenThrow(new RedisConnectionFailureException("Redis down"));
+
+        RateLimitResult result = service.check(USER_ID);
+
+        assertThat(result.isAllowed()).isTrue();
     }
 }
